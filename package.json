@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "discord-interactions": "^4.3.0",
+    "vercel": "^44.6.5"
+  }
+}
