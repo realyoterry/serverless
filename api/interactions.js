@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 
 		async function fetchUser(userId) {
 			const res = await fetch(`https://discord.com/api/v10/users/${userId}`, {
-				headers: { Authorization: `Bot ${process.env.DISCORD_TOKEN}` },
+				headers: { Authorization: `Bot ${process.env.token}` },
 			});
 			if (!res.ok) throw new Error('Failed to fetch user');
 			return res.json();
