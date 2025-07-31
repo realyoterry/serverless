@@ -15,7 +15,7 @@ const HI_COMMAND = {
 	description: "Say hello!",
 };
  
-const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${process.env.APPLICATION_ID}&scope=applications.commands`;
+const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${process.env.appId}&scope=applications.commands`;
  
 /**
  * Gotta see someone 'bout a trout
@@ -34,7 +34,7 @@ module.exports = async (request, response) => {
 			rawBody,
 			signature,
 			timestamp,
-			process.env.PUBLIC_KEY,
+			process.env.publicKey,
 		);
  
 		if (!isValidRequest) {
