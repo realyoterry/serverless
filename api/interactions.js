@@ -1,4 +1,6 @@
 import nacl from 'tweetnacl';
+import db from '../../db.js'; // Adjust path if needed
+import fetch from 'node-fetch'; // If not using global fetch
 
 export const config = {
 	api: {
@@ -27,75 +29,109 @@ export default async function handler(req, res) {
 	const timestamp = req.headers['x-signature-timestamp'];
 
 	let rawBody = '';
-	await new Promise((resolve) => {
-		req.on('data', (chunk) => (rawBody += chunk));
+	await new Promise(resolve => {
+		req.on('data', chunk => (rawBody += chunk));
 		req.on('end', resolve);
 	});
 
-	const isValid = verifySignature({
-		signature,
-		timestamp,
-		body: rawBody,
-		publicKey: process.env.publicKey,
-	});
-
-	if (!isValid) {
-		return res.status(401).send('Invalid request signature');
+	if (
+		!verifySignature({
+			signature,
+			timestamp,
+			body: rawBody,
+			publicKey: process.env.publicKey,
+		})
+	) {
+		return res.status(401).send('Invalid signature');
 	}
 
 	const interaction = JSON.parse(rawBody);
 
 	if (interaction.type === 1) {
-		return res.status(200).json({ type: 1 });
+		return res.status(200).json({ type: 1 }); // Ping
 	}
 
-	if (interaction.type === 2 && interaction.data.name === 'ship') {
-		const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
-		const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
+	// Handle slash commands
+	if (interaction.type === 2) {
+		const command = interaction.data.name;
 
-		async function fetchUser(userId) {
-			const res = await fetch(`https://discord.com/api/v10/users/${userId}`, {
-				headers: { Authorization: `Bot ${process.env.token}` },
-			});
-			if (!res.ok) throw new Error('Failed to fetch user');
-			return res.json();
+		if (command === 'createship') {
+			const user1 = interaction.data.options.find(o => o.name === 'user1').value;
+			const user2 = interaction.data.options.find(o => o.name === 'user2').value;
+			const shipName = interaction.data.options.find(o => o.name === 'shipname').value.trim();
+
+			if (interaction.member.id !== '1094120827601047653') {
+				return res.status(403).json({
+					type: 4,
+					data: { content: 'only the supreme leader, teriyaki can use this command, muahahaha' }
+				});
+			}
+
+			const [u1, u2] = user1 < user2 ? [user1, user2] : [user2, user1];
+			const exists = db.prepare('SELECT * FROM ships WHERE user1_id = ? AND user2_id = ?').get(u1, u2);
+
+			if (exists) {
+				db.prepare('UPDATE ships SET ship_name = ? WHERE user1_id = ? AND user2_id = ?').run(shipName, u1, u2);
+				return res.status(200).json({
+					type: 4,
+					data: { content: `✅ Ship name updated: **${shipName}** for <@${u1}> + <@${u2}>.` }
+				});
+			} else {
+				db.prepare('INSERT INTO ships (user1_id, user2_id, ship_name, support_count) VALUES (?, ?, ?, 0)').run(u1, u2, shipName);
+				return res.status(200).json({
+					type: 4,
+					data: { content: `✅ New ship created: **${shipName}** for <@${u1}> + <@${u2}>.` }
+				});
+			}
 		}
 
-		try {
-			const [member1, member2] = await Promise.all([fetchUser(user1), fetchUser(user2)]);
+		if (command === 'support') {
+			const name = interaction.data.options.find(o => o.name === 'shipname').value.trim().toLowerCase();
+			const ship = db.prepare('SELECT * FROM ships WHERE LOWER(ship_name) = ?').get(name);
 
-			console.error(member1, member2);
+			if (!ship) {
+				return res.status(200).json({
+					type: 4,
+					data: { content: '❌ that ship aint existing!' }
+				});
+			}
 
-			let percentage = Math.floor(Math.random() * 101);
+			db.prepare('UPDATE ships SET support_count = support_count + 1 WHERE id = ?').run(ship.id);
+			const newCount = ship.support_count + 1;
 
-			if (user1 === user2) percentage = 100;
+			return res.status(200).json({
+				type: 4,
+				data: {
+					content: `👍 support added for **${ship.ship_name}** (<@${ship.user1_id}> + <@${ship.user2_id}>). total: ${newCount}`,
+				},
+			});
+		}
 
-			const half1 = member1.username.slice(0, Math.floor(member1.username.length / 2));
-			const half2 = member2.username.slice(Math.floor(member2.username.length / 2));
-			const shipName = half1 + half2;
+		if (command === 'leaderboard') {
+			const ships = db.prepare('SELECT * FROM ships ORDER BY support_count DESC LIMIT 10').all();
+
+			if (!ships.length) {
+				return res.status(200).json({
+					type: 4,
+					data: { content: '🚫 no ships found yet hehe' },
+				});
+			}
+
+			const description = ships.map((s, i) =>
+				`**${i + 1}.** **${s.ship_name}** — <@${s.user1_id}> + <@${s.user2_id}> — 💖 **${s.support_count}**`
+			).join('\n');
 
 			return res.status(200).json({
 				type: 4,
 				data: {
 					embeds: [
 						{
-							title: "💞 Ship Result 💞",
+							title: "🏆 ship leaderboard!!!",
 							color: 0xFF69B4,
-							fields: [
-								{ name: "Couple", value: `${member1.username} + ${member2.username}` },
-								{ name: "Compatibility", value: `${percentage}%`, inline: true },
-								{ name: "Ship Name", value: shipName, inline: true },
-								{ name: "Comment", value: getComment(percentage) },
-							],
+							description,
 						},
 					],
 				},
-			});
-		} catch (error) {
-			console.error('Error fetching users:', error);
-			return res.status(200).json({
-				type: 4,
-				data: { content: '❌ Failed to fetch user information.' },
 			});
 		}
 	}
@@ -103,7 +139,8 @@ export default async function handler(req, res) {
 	return res.status(200).json({
 		type: 4,
 		data: {
-			content: "Sorry, I don't recognize that command.",
+			content: "Unknown command. Try `/createship`, `/support`, or `/leaderboard`.",
 		},
 	});
 }
+ 
