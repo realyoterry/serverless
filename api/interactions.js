@@ -1,6 +1,5 @@
 import nacl from 'tweetnacl';
-import db from '../../db.js'; // Adjust path if needed
-import fetch from 'node-fetch'; // If not using global fetch
+import db from '../db.js'; // Adjust path if needed
 
 export const config = {
 	api: {
