@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     signature,
     timestamp,
     body: rawBody,
-    publicKey: process.env.publicKey,
+    publicKey: '736c354e4f88c2744cb4fa75f2928b8d89c28bac9f58eeba6eb94ad3d64b9609',
   });
 
   if (!isValid) {
