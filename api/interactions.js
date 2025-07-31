@@ -64,6 +64,8 @@ export default async function handler(req, res) {
 		try {
 			const [member1, member2] = await Promise.all([fetchUser(user1), fetchUser(user2)]);
 
+			console.error(member1, member2);
+
 			let percentage = Math.floor(Math.random() * 101);
 
 			if (user1 === user2) percentage = 100;
