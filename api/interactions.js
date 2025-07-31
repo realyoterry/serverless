@@ -6,13 +6,8 @@ const {
 const getRawBody = require("raw-body");
  
 const INVITE_COMMAND = {
-	name: "Invite",
-	description: "Get an invite link to add the bot to your server",
-};
- 
-const HI_COMMAND = {
-	name: "Hi",
-	description: "Say hello!",
+	name: "ping",
+	description: "pong",
 };
  
 const INVITE_URL = `https://discord.com/oauth2/authorize?client_id=${process.env.appId}&scope=applications.commands`;
@@ -54,20 +49,11 @@ module.exports = async (request, response) => {
 		} else if (message.type === InteractionType.APPLICATION_COMMAND) {
 			// Handle our Slash Commands
 			switch (message.data.name.toLowerCase()) {
-				case SLAP_COMMAND.name.toLowerCase():
-					response.status(200).send({
-						type: 4,
-						data: {
-							content: "Hello!",
-						},
-					});
-					console.log("Slap Request");
-					break;
 				case INVITE_COMMAND.name.toLowerCase():
 					response.status(200).send({
 						type: 4,
 						data: {
-							content: INVITE_URL,
+							content: 'pong',
 							flags: 64,
 						},
 					});
