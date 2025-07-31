@@ -2,6 +2,7 @@
   "dependencies": {
     "discord-interactions": "^4.3.0",
     "raw-body": "^3.0.0",
+    "tweetnacl": "^1.0.3",
     "vercel": "^44.6.5"
   }
 }

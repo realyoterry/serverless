@@ -1,21 +1,16 @@
-const applicationId = process.env.appId;
-const botToken = process.env.token;
+import fetch from 'node-fetch';
 
-const commands = [
-    {
-        name: 'ping',
-        description: 'Replies with Pong!',
-    }
-];
+const COMMAND = {
+  name: 'hello',
+  description: 'Replies with a greeting',
+  type: 1,
+};
 
-fetch(`https://discord.com/api/v10/applications/${applicationId}/commands`, {
-    method: 'PUT',
-    headers: {
-        'Authorization': `Bot ${botToken}`,
-        'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(commands),
-})
-    .then(res => res.json())
-    .then(console.log)
-    .catch(console.error);
+fetch(`https://discord.com/api/v10/applications/${process.env.appId}/commands`, {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bot ${process.env.token}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(COMMAND),
+});
