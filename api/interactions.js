@@ -177,7 +177,7 @@ export default async function handler(req, res) {
 		}
 
 		if (interaction.data.name === 'createship') {
-			if (interaction.member.id !== '1094120827601047653') {
+			if (interaction.user.id !== '1094120827601047653') {
 				return res.status(200).json({ type: 4, data: { content: "only our surpreme leader, teriyaki can use this muahahaha." } });
 			}
 
