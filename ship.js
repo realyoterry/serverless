@@ -1,10 +1,23 @@
-import mongoose from 'mongoose';
+import Database from 'better-sqlite3';
+import { join } from 'path';
+import { mkdirSync, existsSync } from 'fs';
 
-const ShipSchema = new mongoose.Schema({
-  user1: String,
-  user2: String,
-  name: { type: String, unique: true },
-  supporters: [String],
-});
+const dbDir = '/tmp'; // Works on Vercel
+const dbPath = join(dbDir, 'ships.db');
 
-export const collection = mongoose.models.Ship || mongoose.model('Ship', ShipSchema)
+if (!existsSync(dbDir)) mkdirSync(dbDir);
+
+const db = new Database(dbPath);
+
+// Create the table
+db.prepare(`
+	CREATE TABLE IF NOT EXISTS ships (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user1 TEXT,
+		user2 TEXT,
+		name TEXT UNIQUE,
+		supportCount INTEGER DEFAULT 0
+	)
+`).run();
+
+export default db;

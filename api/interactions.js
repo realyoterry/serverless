@@ -2,12 +2,9 @@ import nacl from 'tweetnacl';
 import mongoose from 'mongoose';
 
 async function dbConnect() {
-  if (mongoose.connection.readyState >= 1) return;
+	if (mongoose.connection.readyState >= 1) return;
 
-  return mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+	return mongoose.connect(process.env.MONGODB_URI);
 }
 
 export const config = {
@@ -166,107 +163,80 @@ export default async function handler(req, res) {
 		}
 
 		if (interaction.data.name === 'createship') {
-			await dbConnect();
+	const member = interaction.member;
+	const isMod = (member.permissions & (1 << 5)) !== 0; // Manage Guild
+	if (!isMod) {
+		return res.status(200).json({ type: 4, data: { content: "❌ You can't use this." } });
+	}
 
-			const member = interaction.member;
-			const isMod = (member.permissions & (1 << 5)) !== 0;
-			if (!isMod) {
-				return res.status(200).json({
-					type: 4,
-					data: { content: "❌ You don't have permission to use this command." },
-				});
-			}
+	const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
+	const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
+	const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
-			const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
-			const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
-			const name = interaction.data.options.find(opt => opt.name === 'name').value;
+	try {
+		const db = (await import('../ship.js')).default;
+		const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
+		stmt.run(user1, user2, name);
 
-			const Ship = (await import('../ship.js')).default;
+		return res.status(200).json({ type: 4, data: { content: `✅ Ship "${name}" created.` } });
+	} catch (err) {
+		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+	}
+}
 
-			try {
-				const existing = await Ship.collection.findOne({ name });
-				if (existing) throw new Error("Ship already exists!");
 
-				const newShip = new Ship({ user1, user2, name, supporters: [] });
-				await newShip.save();
+if (interaction.data.name === 'support') {
+	const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
-				return res.status(200).json({
-					type: 4,
-					data: { content: `💖 Ship "${name}" has been created!` },
-				});
-			} catch (err) {
-				return res.status(200).json({
-					type: 4,
-					data: { content: `❌ Failed to create ship: ${err.message}` },
-				});
-			}
-		}
+	try {
+		const db = (await import('../ship.js')).default;
 
-		if (interaction.data.name === 'support') {
-			await dbConnect();
+		// Make sure the ship exists
+		const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
+		if (!ship) throw new Error("Ship not found.");
 
-			const name = interaction.data.options.find(opt => opt.name === 'name').value;
-			const userId = interaction.member.user.id;
+		db.prepare('UPDATE ships SET supportCount = supportCount + 1 WHERE name = ?').run(name);
 
-			const Ship = (await import('../ship.js')).default;
+		return res.status(200).json({
+			type: 4,
+			data: { content: `✅ You supported "${name}"! It's now at ${ship.supportCount + 1} ❤️.` },
+		});
+	} catch (err) {
+		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+	}
+}
 
-			try {
-				const ship = await Ship.collection.findOne({ name });
-				if (!ship) throw new Error("Ship not found.");
 
-				if (ship.supporters.includes(userId)) {
-					return res.status(200).json({
-						type: 4,
-						data: { content: '❌ You already support this ship!' },
-					});
-				}
-
-				ship.supporters.push(userId);
-				await ship.save();
-
-				return res.status(200).json({
-					type: 4,
-					data: { content: `✅ You now support "${name}"!` },
-				});
-			} catch (err) {
-				return res.status(200).json({
-					type: 4,
-					data: { content: `❌ Could not support ship: ${err.message}` },
-				});
-			}
-		}
 
 		if (interaction.data.name === 'leaderboard') {
-			await dbConnect();
+	try {
+		const db = (await import('../ship.js')).default;
+		const rows = db.prepare('SELECT * FROM ships ORDER BY supportCount DESC LIMIT 10').all();
 
-			const Ship = (await import('../ship.js')).default;
-
-			const ships = await Ship.collection.find({});
-			const sorted = ships.sort((a, b) => b.supporters.length - a.supporters.length).slice(0, 10);
-
-			if (sorted.length === 0) {
-				return res.status(200).json({
-					type: 4,
-					data: { content: '❌ No ships found yet.' },
-				});
-			}
-
-			const fields = sorted.map((ship, index) => ({
-				name: `#${index + 1} - ${ship.name}`,
-				value: `❤️ ${ship.supporters.length} supports\n<@${ship.user1}> + <@${ship.user2}>`,
-			}));
-
-			return res.status(200).json({
-				type: 4,
-				data: {
-					embeds: [{
-						title: '📊 Ship Leaderboard',
-						color: 0x00BFFF,
-						fields,
-					}],
-				},
-			});
+		if (rows.length === 0) {
+			return res.status(200).json({ type: 4, data: { content: '❌ No ships found.' } });
 		}
+
+		const fields = rows.map((ship, i) => ({
+			name: `#${i + 1} - ${ship.name}`,
+			value: `❤️ ${ship.supportCount} supports\n<@${ship.user1}> + <@${ship.user2}>`
+		}));
+
+		return res.status(200).json({
+			type: 4,
+			data: {
+				embeds: [{
+					title: '📈 Ship Leaderboard',
+					color: 0xff69b4,
+					fields
+				}]
+			}
+		});
+	} catch (err) {
+		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+	}
+}
+
 
 		return res.status(200).json({
 			type: 4,
