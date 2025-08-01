@@ -184,7 +184,7 @@ export default async function handler(req, res) {
 			const Ship = (await import('../ship.js')).default;
 
 			try {
-				const existing = await Ship.findOne({ name });
+				const existing = await Ship.collection.findOne({ name });
 				if (existing) throw new Error("Ship already exists!");
 
 				const newShip = new Ship({ user1, user2, name, supporters: [] });
@@ -211,7 +211,7 @@ export default async function handler(req, res) {
 			const Ship = (await import('../ship.js')).default;
 
 			try {
-				const ship = await Ship.findOne({ name });
+				const ship = await Ship.collection.findOne({ name });
 				if (!ship) throw new Error("Ship not found.");
 
 				if (ship.supporters.includes(userId)) {
@@ -241,7 +241,7 @@ export default async function handler(req, res) {
 
 			const Ship = (await import('../ship.js')).default;
 
-			const ships = await Ship.find({});
+			const ships = await Ship.collection.find({});
 			const sorted = ships.sort((a, b) => b.supporters.length - a.supporters.length).slice(0, 10);
 
 			if (sorted.length === 0) {

@@ -7,4 +7,4 @@ const ShipSchema = new mongoose.Schema({
   supporters: [String],
 });
 
-export default mongoose.models.Ship || mongoose.model('Ship', ShipSchema);
+export const collection = mongoose.models.Ship || mongoose.model('Ship', ShipSchema)
