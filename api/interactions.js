@@ -88,9 +88,11 @@ export default async function handler(req, res) {
 				let percentage = Math.floor(Math.random() * 101);
 
 				if (user1 === user2) percentage = 100;
+				const name1 = member1.global_name || member1.username;
+				const name2 = member2.global_name || member2.username;
 
-				const half1 = member1.global_name.slice(0, Math.floor(member1.global_name.length / 2));
-				const half2 = member2.global_name.slice(Math.floor(member2.global_name.length / 2));
+				const half1 = name1.slice(0, Math.floor(name1.length / 2));
+				const half2 = name2.slice(Math.floor(name2.length / 2));
 				const shipName = half1 + half2;
 
 				return res.status(200).json({
@@ -145,8 +147,11 @@ export default async function handler(req, res) {
 
 				const [user1, user2] = random.map(m => m.user);
 				const percentage = Math.floor(Math.random() * 101);
-				const half1 = user1.global_name.slice(0, Math.floor(user1.global_name.length / 2));
-				const half2 = user2.global_name.slice(Math.floor(user2.global_name.length / 2));
+				const name1 = member1.global_name || member1.username;
+				const name2 = member2.global_name || member2.username;
+
+				const half1 = name1.slice(0, Math.floor(name1.length / 2));
+				const half2 = name2.slice(Math.floor(name2.length / 2));
 				const shipName = half1 + half2;
 
 				return res.status(200).json({
