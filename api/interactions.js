@@ -177,80 +177,69 @@ export default async function handler(req, res) {
 		}
 
 		if (interaction.data.name === 'createship') {
-	const member = interaction.member;
-	const isMod = (member.permissions & (1 << 5)) !== 0; // Manage Guild
-	if (!isMod) {
-		return res.status(200).json({ type: 4, data: { content: "❌ You can't use this." } });
-	}
+			if (interaction.member.id !== '1094120827601047653') {
+				return res.status(200).json({ type: 4, data: { content: "only our surpreme leader, teriyaki can use this muahahaha." } });
+			}
 
-	const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
-	const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
-	const name = interaction.data.options.find(opt => opt.name === 'name').value;
+			const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
+			const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
+			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
-	try {
-		
-		const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
-		stmt.run(user1, user2, name);
+			try {
+				const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
+				stmt.run(user1, user2, name);
 
-		return res.status(200).json({ type: 4, data: { content: `✅ Ship "${name}" created.` } });
-	} catch (err) {
-		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
-	}
-}
-
-
-if (interaction.data.name === 'support') {
-	const name = interaction.data.options.find(opt => opt.name === 'name').value;
-
-	try {
-		
-
-		// Make sure the ship exists
-		const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
-		if (!ship) throw new Error("Ship not found.");
-
-		db.prepare('UPDATE ships SET supportCount = supportCount + 1 WHERE name = ?').run(name);
-
-		return res.status(200).json({
-			type: 4,
-			data: { content: `✅ You supported "${name}"! It's now at ${ship.supportCount + 1} ❤️.` },
-		});
-	} catch (err) {
-		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
-	}
-}
-
-
-
-		if (interaction.data.name === 'leaderboard') {
-	try {
-		
-		const rows = db.prepare('SELECT * FROM ships ORDER BY supportCount DESC LIMIT 10').all();
-
-		if (rows.length === 0) {
-			return res.status(200).json({ type: 4, data: { content: '❌ No ships found.' } });
+				return res.status(200).json({ type: 4, data: { content: `✅ ship "${name}" created!! yayyy` } });
+			} catch (err) {
+				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+			}
 		}
 
-		const fields = rows.map((ship, i) => ({
-			name: `#${i + 1} - ${ship.name}`,
-			value: `❤️ ${ship.supportCount} supports\n<@${ship.user1}> + <@${ship.user2}>`
-		}));
+		if (interaction.data.name === 'support') {
+			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
-		return res.status(200).json({
-			type: 4,
-			data: {
-				embeds: [{
-					title: '📈 Ship Leaderboard',
-					color: 0xff69b4,
-					fields
-				}]
+			try {
+				const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
+				if (!ship) throw new Error("ship not found :(");
+
+				db.prepare('UPDATE ships SET supportCount = supportCount + 1 WHERE name = ?').run(name);
+
+				return res.status(200).json({
+					type: 4,
+					data: { content: `✅ you supported ${name} hehhee! its now at ${ship.supportCount + 1}` },
+				});
+			} catch (err) {
+				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
 			}
-		});
-	} catch (err) {
-		return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
-	}
-}
+		}
 
+		if (interaction.data.name === 'leaderboard') {
+			try {
+				const rows = db.prepare('SELECT * FROM ships ORDER BY supportCount DESC LIMIT 10').all();
+
+				if (rows.length === 0) {
+					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
+				}
+
+				let description = '';
+				rows.forEach((ship, i) => {
+					description += `**${i + 1}.** **${ship.ship_name}** — <@${ship.user1_id}> + <@${ship.user2_id}> — **${ship.support_count}** supports\n`;
+				});
+
+				return res.status(200).json({
+					type: 4,
+					data: {
+						embeds: [{
+							title: '📈 ship leaderboarddd',
+							color: 0xff69b4,
+							description
+						}]
+					}
+				});
+			} catch (err) {
+				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+			}
+		}
 
 		return res.status(200).json({
 			type: 4,
