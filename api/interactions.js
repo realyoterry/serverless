@@ -179,22 +179,62 @@ export default async function handler(req, res) {
 			}
 		}
 
-		if (interaction.data.name === 'createship') {
+		if (interaction.data.name === 'editship') {
 			if (interaction.member.user.id !== '1094120827601047653') {
-				return res.status(200).json({ type: 4, data: { content: "only our surpreme leader, teriyaki can use this muahahaha." } });
+				return res.status(200).json({
+					type: 4,
+					data: { content: "only our supreme leader, teriyaki, can use this muahahaha." }
+				});
 			}
 
-			const user1 = interaction.data.options.find(opt => opt.name === 'user1').value;
-			const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
-			const name = interaction.data.options.find(opt => opt.name === 'name').value;
+			const options = interaction.data.options;
+			const action = options.find(opt => opt.name === 'action')?.value;
+			const user1 = options.find(opt => opt.name === 'user1')?.value;
+			const user2 = options.find(opt => opt.name === 'user2')?.value;
+			const name = options.find(opt => opt.name === 'name')?.value;
 
 			try {
-				const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
-				stmt.run(user1, user2, name);
+				if (action === 'add') {
+					const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
+					stmt.run(user1, user2, name);
+					return res.status(200).json({
+						type: 4,
+						data: { content: `✅ Ship "${name}" created! yayyy` }
+					});
 
-				return res.status(200).json({ type: 4, data: { content: `✅ ship "${name}" created!! yayyy` } });
+				} else if (action === 'edit') {
+					const stmt = db.prepare('UPDATE ships SET name = ? WHERE user1 = ? AND user2 = ?');
+					const result = stmt.run(name, user1, user2);
+					if (result.changes === 0) {
+						throw new Error(`No ship found with those users.`);
+					}
+					return res.status(200).json({
+						type: 4,
+						data: { content: `✏️ Ship name updated to "${name}"!` }
+					});
+
+				} else if (action === 'remove') {
+					const stmt = db.prepare('DELETE FROM ships WHERE name = ?');
+					const result = stmt.run(name);
+					if (result.changes === 0) {
+						throw new Error(`Ship "${name}" not found.`);
+					}
+					return res.status(200).json({
+						type: 4,
+						data: { content: `🗑️ ship "${name}" deleted!` }
+					});
+
+				} else {
+					return res.status(200).json({
+						type: 4,
+						data: { content: `❌ unknown action "${action}"` }
+					});
+				}
 			} catch (err) {
-				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+				return res.status(200).json({
+					type: 4,
+					data: { content: `❌ ${err.message}` }
+				});
 			}
 		}
 
