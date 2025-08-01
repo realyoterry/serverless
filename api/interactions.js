@@ -113,7 +113,7 @@ export default async function handler(req, res) {
 			} catch (error) {
 				return res.status(200).json({
 					type: 4,
-					data: { content: '❌ failed to fetch user information noo.' },
+					data: { content: '❌ failed to fetch user information noo.' + JSON.stringify(error) },
 				});
 			}
 		}
