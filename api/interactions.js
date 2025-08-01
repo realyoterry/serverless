@@ -89,8 +89,8 @@ export default async function handler(req, res) {
 
 				if (user1 === user2) percentage = 100;
 
-				const half1 = member1.username.slice(0, Math.floor(member1.username.length / 2));
-				const half2 = member2.username.slice(Math.floor(member2.username.length / 2));
+				const half1 = member1.global_name.slice(0, Math.floor(member1.global_name.length / 2));
+				const half2 = member2.global_name.slice(Math.floor(member2.global_name.length / 2));
 				const shipName = half1 + half2;
 
 				return res.status(200).json({
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
 									{ name: "cute couple", value: `<@${member1.id}> + <@${member2.id}>` },
 									{ name: "compatitability", value: `${percentage}%`, inline: true },
 									{ name: "ship name", value: shipName, inline: true },
-									{ name: "comment", value: JSON.stringify(member1) },
+									{ name: "comment", value: getComment(percentage) },
 								],
 							},
 						],
@@ -145,8 +145,8 @@ export default async function handler(req, res) {
 
 				const [user1, user2] = random.map(m => m.user);
 				const percentage = Math.floor(Math.random() * 101);
-				const half1 = user1.username.slice(0, Math.floor(user1.username.length / 2));
-				const half2 = user2.username.slice(Math.floor(user2.username.length / 2));
+				const half1 = user1.global_name.slice(0, Math.floor(user1.global_name.length / 2));
+				const half2 = user2.global_name.slice(Math.floor(user2.global_name.length / 2));
 				const shipName = half1 + half2;
 
 				return res.status(200).json({
