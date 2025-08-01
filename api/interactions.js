@@ -7,9 +7,13 @@ export const config = {
 };
 
 import Database from 'better-sqlite3';
+import { join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 // Init database
-const db = new Database('ships.db');
+const dbDir = '/tmp';
+if (!existsSync(dbDir)) mkdirSync(dbDir);
+const db = new Database(join(dbDir, 'ships.db'));
 
 // Create the table once (won't run if it already exists)
 db.exec(`
