@@ -199,7 +199,7 @@ export default async function handler(req, res) {
 					stmt.run(user1, user2, name);
 					return res.status(200).json({
 						type: 4,
-						data: { content: `✅ Ship "${name}" created! yayyy` }
+						data: { content: `✅ ship "${name}" created! yayyy` }
 					});
 
 				} else if (action === 'edit') {
@@ -210,7 +210,7 @@ export default async function handler(req, res) {
 					}
 					return res.status(200).json({
 						type: 4,
-						data: { content: `✏️ Ship name updated to "${name}"!` }
+						data: { content: `✏️ ship name updated to "${name}"!` }
 					});
 
 				} else if (action === 'remove') {
@@ -238,6 +238,32 @@ export default async function handler(req, res) {
 			}
 		}
 
+		if (interaction.data.name === 'edit_ship_count') {
+			if (interaction.member.user.id !== '1094120827601047653') {
+				return res.status(200).json({
+					type: 4,
+					data: { content: "only our supreme leader, teriyaki, can use this muahahaha." }
+				});
+			}
+
+			const name = interaction.data.options.find(opt => opt.name === 'name').value;
+			const supportCount = interaction.data.options.find(opt => opt.name === 'support').value;
+
+			try {
+				const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
+				if (!ship) throw new Error("ship not found :(");
+
+				db.prepare('UPDATE ships SET supportCount = ? WHERE name = ?').run(supportCount, name);
+
+				return res.status(200).json({
+					type: 4,
+					data: { content: `✅ ship "${name}" support count updated to ${supportCount}!` }
+				});
+			} catch (err) {
+				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+			}
+		}
+
 		if (interaction.data.name === 'support') {
 			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
@@ -249,7 +275,7 @@ export default async function handler(req, res) {
 
 				return res.status(200).json({
 					type: 4,
-					data: { content: `✅ you supported ${name} hehhee! its now at ${ship.supportCount + 1}` },
+					data: { content: `✅ you supported "${name}" hehhee! its now at ${ship.supportCount + 1}` },
 				});
 			} catch (err) {
 				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
