@@ -10,12 +10,10 @@ import Database from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 
-// Init database
 const dbDir = '/tmp';
 if (!existsSync(dbDir)) mkdirSync(dbDir);
 const db = new Database(join(dbDir, 'ships.db'));
 
-// Create the table once (won't run if it already exists)
 db.exec(`
   CREATE TABLE IF NOT EXISTS ships (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -106,7 +104,7 @@ export default async function handler(req, res) {
 									{ name: "cute couple", value: `<@${member1.id}> + <@${member2.id}>` },
 									{ name: "compatitability", value: `${percentage}%`, inline: true },
 									{ name: "ship name", value: shipName, inline: true },
-									{ name: "comment", value: getComment(percentage) },
+									{ name: "comment", value: JSON.stringify(member1) + " and " + JSON.stringify(member2) + " are a great match!" },
 								],
 							},
 						],
