@@ -6,6 +6,23 @@ export const config = {
 	},
 };
 
+import Database from 'better-sqlite3';
+
+// Init database
+const db = new Database('ships.db');
+
+// Create the table once (won't run if it already exists)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS ships (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user1 TEXT NOT NULL,
+    user2 TEXT NOT NULL,
+    name TEXT UNIQUE NOT NULL,
+    supportCount INTEGER DEFAULT 0
+  );
+`);
+
+
 function verifySignature({ signature, timestamp, body, publicKey }) {
 	return nacl.sign.detached.verify(
 		Buffer.from(timestamp + body),
@@ -167,7 +184,7 @@ export default async function handler(req, res) {
 	const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
 	try {
-		const db = (await import('../ship.js')).default;
+		
 		const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
 		stmt.run(user1, user2, name);
 
@@ -182,7 +199,7 @@ if (interaction.data.name === 'support') {
 	const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
 	try {
-		const db = (await import('../ship.js')).default;
+		
 
 		// Make sure the ship exists
 		const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
@@ -203,7 +220,7 @@ if (interaction.data.name === 'support') {
 
 		if (interaction.data.name === 'leaderboard') {
 	try {
-		const db = (await import('../ship.js')).default;
+		
 		const rows = db.prepare('SELECT * FROM ships ORDER BY supportCount DESC LIMIT 10').all();
 
 		if (rows.length === 0) {
