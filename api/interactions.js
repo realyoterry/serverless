@@ -104,7 +104,7 @@ export default async function handler(req, res) {
 									{ name: "cute couple", value: `<@${member1.id}> + <@${member2.id}>` },
 									{ name: "compatitability", value: `${percentage}%`, inline: true },
 									{ name: "ship name", value: shipName, inline: true },
-									{ name: "comment", value: JSON.stringify(member1) + " and " + JSON.stringify(member2) + " are a great match!" },
+									{ name: "comment", value: JSON.stringify(member1) },
 								],
 							},
 						],
