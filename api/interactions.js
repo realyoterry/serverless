@@ -223,7 +223,7 @@ export default async function handler(req, res) {
 
 				let description = '';
 				rows.forEach((ship, i) => {
-					description += `**${i + 1}.** **${ship.ship_name}** — <@${ship.user1_id}> + <@${ship.user2_id}> — **${ship.support_count}** supports\n`;
+					description += `**${i + 1}.** **${ship.name}** — <@${ship.user1}> + <@${ship.user2}> — **${ship.supportCount}** supports\n`;
 				});
 
 				return res.status(200).json({
