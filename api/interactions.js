@@ -334,9 +334,10 @@ export default async function handler(req, res) {
 				if (ships.length === 0) {
 					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
 				}
-
+console.log(ships);
 				let description = '';
 				ships.forEach((ship, i) => {
+					console.log(ship);
 					description += `**${i + 1}.** **${ship.name}** — <@${ship.user1}> + <@${ship.user2}> — **${ship.supportCount}** supports\n`;
 				});
 
