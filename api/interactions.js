@@ -30,11 +30,13 @@ function getComment(percentage) {
 }
 
 async function getShip(name) {
-	const ship = await redis.hgetall(`ship:${name}`);
-	if (!ship || Object.keys(ship).length === 0) return null;
-	ship.supportCount = Number(ship.supportCount);
-	return ship;
+  const ship = await redis.hgetall(`ship:${name}`);
+  if (!ship || Object.keys(ship).length === 0) throw new Error("Ship not found");
+
+  ship.supportCount = Number(ship.supportCount) || 0;
+  return ship;
 }
+
 
 async function addShip(user1, user2, name) {
 	// Check if ship exists already
