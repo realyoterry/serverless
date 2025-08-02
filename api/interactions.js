@@ -113,9 +113,9 @@ async function getLeaderboard() {
   });
 
   const leaderboard = [];
-  for (let i = 0; i < flat.length; i += 2) {
+  for (let i = 0; i <= flat.length; i += 1) {
     const name = flat[i];
-    const score = Number(flat[i + 1]);
+    const score = Number(flat[i]);
 
     // Optional: fetch full ship data (user1, user2, etc.)
     const ship = await redis.hgetall(`ship:${name}`);
