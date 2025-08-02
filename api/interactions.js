@@ -30,11 +30,11 @@ function getComment(percentage) {
 }
 
 async function getShip(name) {
-  const ship = await redis.hgetall(`ship:${name}`);
-  if (!ship || Object.keys(ship).length === 0) throw new Error("Ship not found");
+	const ship = await redis.hgetall(`ship:${name}`);
+	if (!ship || Object.keys(ship).length === 0) throw new Error("Ship not found");
 
-  ship.supportCount = Number(ship.supportCount) || 0;
-  return ship;
+	ship.supportCount = Number(ship.supportCount) || 0;
+	return ship;
 }
 
 
@@ -256,38 +256,31 @@ export default async function handler(req, res) {
 			const user2 = options.find(opt => opt.name === 'user2')?.value;
 			const name = options.find(opt => opt.name === 'name')?.value;
 
-			try {
-				if (action === 'add') {
-					await addShip(user1, user2, name);
-					return res.status(200).json({
-						type: 4,
-						data: { content: `✅ ship "${name}" created! yayyy` }
-					});
-
-				} else if (action === 'edit') {
-					await editShipName(user1, user2, name);
-					return res.status(200).json({
-						type: 4,
-						data: { content: `✏️ ship name updated to "${name}"!` }
-					});
-
-				} else if (action === 'remove') {
-					await removeShip(name);
-					return res.status(200).json({
-						type: 4,
-						data: { content: `🗑️ ship "${name}" deleted!` }
-					});
-
-				} else {
-					return res.status(200).json({
-						type: 4,
-						data: { content: `❌ unknown action "${action}"` }
-					});
-				}
-			} catch (err) {
+			if (action === 'add') {
+				await addShip(user1, user2, name);
 				return res.status(200).json({
 					type: 4,
-					data: { content: `❌ ${err.message}` }
+					data: { content: `✅ ship "${name}" created! yayyy` }
+				});
+
+			} else if (action === 'edit') {
+				await editShipName(user1, user2, name);
+				return res.status(200).json({
+					type: 4,
+					data: { content: `✏️ ship name updated to "${name}"!` }
+				});
+
+			} else if (action === 'remove') {
+				await removeShip(name);
+				return res.status(200).json({
+					type: 4,
+					data: { content: `🗑️ ship "${name}" deleted!` }
+				});
+
+			} else {
+				return res.status(200).json({
+					type: 4,
+					data: { content: `❌ unknown action "${action}"` }
 				});
 			}
 		}
