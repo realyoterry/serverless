@@ -135,6 +135,7 @@ export default async function handler(req, res) {
 				const name2 = u2.global_name || u2.username;
 				const shipName = name1.slice(0, name1.length / 2) + name2.slice(name2.length / 2);
 
+				console.log('About to PATCH with data:', data);
 				await doPatch({
 					embeds: [{
 						title: command === 'ship' ? '💞 ship resulttt 💞' : '🎲 random shippp 🎲',
