@@ -56,9 +56,24 @@ export default async function handler(req, res) {
 
 	await connectDB();
 
-	// Commands start
 	if (interaction.type === 2) {
 		const { name: command } = interaction.data;
+
+		// Immediately defer the interaction response:
+		res.status(200).json({ type: 5 });
+
+		const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
+
+		const doPatch = async (data) => {
+			await fetch(followupUrl, {
+				method: 'PATCH',
+				headers: {
+					Authorization: `Bot ${process.env.token}`,
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(data),
+			});
+		};
 
 		if (command === 'ship' || command === 'randomship') {
 			const getUser = async (id) => {
@@ -93,26 +108,26 @@ export default async function handler(req, res) {
 			const name2 = u2.global_name || u2.username;
 			const shipName = name1.slice(0, name1.length / 2) + name2.slice(name2.length / 2);
 
-			return res.status(200).json({
-				type: 4,
-				data: {
-					embeds: [{
-						title: command === 'ship' ? '💞 ship resulttt 💞' : '🎲 random shippp 🎲',
-						color: 0xFF69B4,
-						fields: [
-							{ name: 'cute couple', value: `<@${u1.id}> + <@${u2.id}>` },
-							{ name: 'compatibility', value: `${percentage}%`, inline: true },
-							{ name: 'ship name', value: shipName, inline: true },
-							{ name: 'comment', value: getComment(percentage) },
-						]
-					}]
-				}
+			await doPatch({
+				embeds: [{
+					title: command === 'ship' ? '💞 ship resulttt 💞' : '🎲 random shippp 🎲',
+					color: 0xFF69B4,
+					fields: [
+						{ name: 'cute couple', value: `<@${u1.id}> + <@${u2.id}>` },
+						{ name: 'compatibility', value: `${percentage}%`, inline: true },
+						{ name: 'ship name', value: shipName, inline: true },
+						{ name: 'comment', value: getComment(percentage) },
+					]
+				}]
 			});
+
+			return;
 		}
 
 		if (command === 'editship') {
 			if (interaction.member.user.id !== '1094120827601047653') {
-				return res.status(200).json({ type: 4, data: { content: "only our supreme leader, teriyaki, can use this muahahaha." } });
+				await doPatch({ content: "only our supreme leader, teriyaki, can use this muahahaha." });
+				return;
 			}
 
 			const opts = Object.fromEntries(interaction.data.options.map(opt => [opt.name, opt.value]));
@@ -120,7 +135,8 @@ export default async function handler(req, res) {
 			try {
 				if (opts.action === 'add') {
 					await Ship.create({ user1: opts.user1, user2: opts.user2, name: opts.name });
-					return res.status(200).json({ type: 4, data: { content: `✅ ship "${opts.name}" created! yayyy` } });
+					await doPatch({ content: `✅ ship "${opts.name}" created! yayyy` });
+					return;
 				}
 				if (opts.action === 'edit') {
 					const result = await Ship.updateOne(
@@ -128,33 +144,41 @@ export default async function handler(req, res) {
 						{ name: opts.name }
 					);
 					if (result.modifiedCount === 0) throw new Error("No ship found with those users.");
-					return res.status(200).json({ type: 4, data: { content: `✏️ ship name updated to "${opts.name}"!` } });
+					await doPatch({ content: `✏️ ship name updated to "${opts.name}"!` });
+					return;
 				}
 				if (opts.action === 'remove') {
 					const result = await Ship.deleteOne({ name: opts.name });
 					if (result.deletedCount === 0) throw new Error(`Ship "${opts.name}" not found.`);
-					return res.status(200).json({ type: 4, data: { content: `🗑️ ship "${opts.name}" deleted!` } });
+					await doPatch({ content: `🗑️ ship "${opts.name}" deleted!` });
+					return;
 				}
-				return res.status(200).json({ type: 4, data: { content: `❌ unknown action "${opts.action}"` } });
+				await doPatch({ content: `❌ unknown action "${opts.action}"` });
 			} catch (err) {
-				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+				await doPatch({ content: `❌ ${err.message}` });
 			}
+
+			return;
 		}
 
 		if (command === 'edit_ship_count') {
 			if (interaction.member.user.id !== '1094120827601047653') {
-				return res.status(200).json({ type: 4, data: { content: "only our supreme leader, teriyaki, can use this muahahaha." } });
+				await doPatch({ content: "only our supreme leader, teriyaki, can use this muahahaha." });
+				return;
 			}
+
 			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 			const support = interaction.data.options.find(opt => opt.name === 'support').value;
 
 			try {
 				const updated = await Ship.updateOne({ name }, { support });
 				if (updated.modifiedCount === 0) throw new Error("ship not found :(");
-				return res.status(200).json({ type: 4, data: { content: `✅ ship "${name}" support count updated to ${support}!` } });
+				await doPatch({ content: `✅ ship "${name}" support count updated to ${support}!` });
 			} catch (err) {
-				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+				await doPatch({ content: `❌ ${err.message}` });
 			}
+
+			return;
 		}
 
 		if (command === 'support') {
@@ -166,41 +190,43 @@ export default async function handler(req, res) {
 				ship.support += 1;
 				await ship.save();
 
-				return res.status(200).json({
-					type: 4,
-					data: { content: `✅ you supported "${name}" hehhee! its now at ${ship.support}` },
+				await doPatch({
+					content: `✅ you supported "${name}" hehhee! its now at ${ship.support}`
 				});
 			} catch (err) {
-				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+				await doPatch({ content: `❌ ${err.message}` });
 			}
+
+			return;
 		}
 
 		if (command === 'leaderboard') {
 			try {
 				const ships = await Ship.find().sort({ support: -1 }).limit(10);
 				if (ships.length === 0) {
-					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
+					await doPatch({ content: '❌ no ships found noo.' });
+					return;
 				}
 
 				const description = ships.map((s, i) => (
 					`**${i + 1}.** **${s.name}** — <@${s.user1}> + <@${s.user2}> — **${s.support}** supports`
 				)).join('\n');
 
-				return res.status(200).json({
-					type: 4,
-					data: {
-						embeds: [{
-							title: '📈 ship leaderboarddd',
-							color: 0xff69b4,
-							description
-						}]
-					}
+				await doPatch({
+					embeds: [{
+						title: '📈 ship leaderboarddd',
+						color: 0xff69b4,
+						description,
+					}]
 				});
 			} catch (err) {
-				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
+				await doPatch({ content: `❌ ${err.message}` });
 			}
+
+			return;
 		}
 
-		return res.status(200).json({ type: 4, data: { content: "sorry, I don't recognize that command." } });
+		// Fallback unknown command response:
+		await doPatch({ content: "sorry, I don't recognize that command." });
 	}
 }
