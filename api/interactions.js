@@ -97,12 +97,8 @@ async function incrementSupport(name) {
 }
 
 async function getLeaderboard() {
-	const topShips = await redis.zrevrange('ship_leaderboard', 0, 9);
-	const result = [];
-	for (const name of topShips) {
-		const ship = await getShip(name);
-		if (ship) result.push({ name, ...ship });
-	}
+	const result = await redis.zrange('leaderboard', 0, 9, { REV: true, WITHSCORES: true });
+
 	return result;
 }
 
