@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "discord-interactions": "^4.3.0",
-    "mongoose": "^8.17.0",
+    "mongodb": "^6.18.0",
     "tweetnacl": "^1.0.3",
     "vercel": "^44.6.5"
   }
