@@ -94,7 +94,11 @@ async function updateSupportCount(name, supportCount) {
 	const ship = await getShip(name);
 	if (!ship) throw new Error('ship not found :(');
 	await redis.hset(`ship:${name}`, 'supportCount', supportCount);
-	await redis.zadd('ship_leaderboard', supportCount, name);
+	await redis.zadd('ship_leaderboard', {
+  score: supportCount,
+  member: name,
+});
+
 }
 
 async function incrementSupport(name) {
@@ -353,7 +357,7 @@ export default async function handler(req, res) {
 				}
 
 				ships.sort((a, b) => Number(b.supportCount) - Number(a.supportCount));
-			
+
 				let description = '';
 				ships.forEach((ship, i) => {
 					console.log(ship);
