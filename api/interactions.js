@@ -52,28 +52,42 @@ export default async function handler(req, res) {
 	}
 
 	const interaction = JSON.parse(rawBody);
+
+	// Respond to PINGs immediately
 	if (interaction.type === 1) return res.status(200).json({ type: 1 });
 
-	await connectDB();
-
+	// For application commands (type 2), DEFER immediately (within 3 seconds)
 	if (interaction.type === 2) {
-		const { name: command } = interaction.data;
-
-		// Immediately defer the interaction response:
+		// Send defer right away, synchronously
 		res.status(200).json({ type: 5 });
 
+		// Now run async logic below without blocking the defer response
 		const followupUrl = `https://discord.com/api/v10/webhooks/${interaction.application_id}/${interaction.token}/messages/@original`;
 
 		const doPatch = async (data) => {
-			await fetch(followupUrl, {
-				method: 'PATCH',
-				headers: {
-					Authorization: `Bot ${process.env.token}`,
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify(data),
-			});
+			try {
+				await fetch(followupUrl, {
+					method: 'PATCH',
+					headers: {
+						Authorization: `Bot ${process.env.token}`,
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify(data),
+				});
+			} catch (err) {
+				console.error('Failed to PATCH interaction followup:', err);
+			}
 		};
+
+		try {
+			await connectDB();
+		} catch (err) {
+			console.error('MongoDB connection error:', err);
+			await doPatch({ content: '❌ Database connection error, try again later.' });
+			return;
+		}
+
+		const { name: command } = interaction.data;
 
 		if (command === 'ship' || command === 'randomship') {
 			const getUser = async (id) => {
@@ -90,36 +104,47 @@ export default async function handler(req, res) {
 				user2 = interaction.data.options.find(opt => opt.name === 'user2')?.value;
 			} else {
 				const guildId = interaction.guild_id;
-				const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
-					headers: { Authorization: `Bot ${process.env.token}` },
-				});
-				const members = (await res.json()).filter(m => !m.user.bot);
-				const picks = [];
-				while (picks.length < 2) {
-					const m = members[Math.floor(Math.random() * members.length)];
-					if (!picks.find(p => p.user.id === m.user.id)) picks.push(m);
+				try {
+					const res = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
+						headers: { Authorization: `Bot ${process.env.token}` },
+					});
+					const members = (await res.json()).filter(m => !m.user.bot);
+					const picks = [];
+					while (picks.length < 2) {
+						const m = members[Math.floor(Math.random() * members.length)];
+						if (!picks.find(p => p.user.id === m.user.id)) picks.push(m);
+					}
+					[user1, user2] = picks.map(m => m.user.id);
+				} catch (err) {
+					console.error('Failed to fetch guild members:', err);
+					await doPatch({ content: '❌ Failed to fetch guild members.' });
+					return;
 				}
-				[user1, user2] = picks.map(m => m.user.id);
 			}
 
-			const [u1, u2] = await Promise.all([getUser(user1), getUser(user2)]);
-			const percentage = user1 === user2 ? 100 : Math.floor(Math.random() * 101);
-			const name1 = u1.global_name || u1.username;
-			const name2 = u2.global_name || u2.username;
-			const shipName = name1.slice(0, name1.length / 2) + name2.slice(name2.length / 2);
+			try {
+				const [u1, u2] = await Promise.all([getUser(user1), getUser(user2)]);
+				const percentage = user1 === user2 ? 100 : Math.floor(Math.random() * 101);
+				const name1 = u1.global_name || u1.username;
+				const name2 = u2.global_name || u2.username;
+				const shipName = name1.slice(0, name1.length / 2) + name2.slice(name2.length / 2);
 
-			await doPatch({
-				embeds: [{
-					title: command === 'ship' ? '💞 ship resulttt 💞' : '🎲 random shippp 🎲',
-					color: 0xFF69B4,
-					fields: [
-						{ name: 'cute couple', value: `<@${u1.id}> + <@${u2.id}>` },
-						{ name: 'compatibility', value: `${percentage}%`, inline: true },
-						{ name: 'ship name', value: shipName, inline: true },
-						{ name: 'comment', value: getComment(percentage) },
-					]
-				}]
-			});
+				await doPatch({
+					embeds: [{
+						title: command === 'ship' ? '💞 ship resulttt 💞' : '🎲 random shippp 🎲',
+						color: 0xFF69B4,
+						fields: [
+							{ name: 'cute couple', value: `<@${u1.id}> + <@${u2.id}>` },
+							{ name: 'compatibility', value: `${percentage}%`, inline: true },
+							{ name: 'ship name', value: shipName, inline: true },
+							{ name: 'comment', value: getComment(percentage) },
+						]
+					}]
+				});
+			} catch (err) {
+				console.error('Error in ship command:', err);
+				await doPatch({ content: '❌ Failed to fetch user data for ship.' });
+			}
 
 			return;
 		}
@@ -155,6 +180,7 @@ export default async function handler(req, res) {
 				}
 				await doPatch({ content: `❌ unknown action "${opts.action}"` });
 			} catch (err) {
+				console.error('editship error:', err);
 				await doPatch({ content: `❌ ${err.message}` });
 			}
 
@@ -175,6 +201,7 @@ export default async function handler(req, res) {
 				if (updated.modifiedCount === 0) throw new Error("ship not found :(");
 				await doPatch({ content: `✅ ship "${name}" support count updated to ${support}!` });
 			} catch (err) {
+				console.error('edit_ship_count error:', err);
 				await doPatch({ content: `❌ ${err.message}` });
 			}
 
@@ -194,6 +221,7 @@ export default async function handler(req, res) {
 					content: `✅ you supported "${name}" hehhee! its now at ${ship.support}`
 				});
 			} catch (err) {
+				console.error('support error:', err);
 				await doPatch({ content: `❌ ${err.message}` });
 			}
 
@@ -220,13 +248,14 @@ export default async function handler(req, res) {
 					}]
 				});
 			} catch (err) {
+				console.error('leaderboard error:', err);
 				await doPatch({ content: `❌ ${err.message}` });
 			}
 
 			return;
 		}
 
-		// Fallback unknown command response:
+		// fallback unknown command
 		await doPatch({ content: "sorry, I don't recognize that command." });
 	}
 }
