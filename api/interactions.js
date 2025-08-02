@@ -106,10 +106,28 @@ async function incrementSupport(name) {
 }
 
 async function getLeaderboard() {
-	const result = await redis.zrange('ship_leaderboard', 0, 9, { BY: 'score', REV: true });
+  const flat = await redis.zrange('ship_leaderboard', 0, 9, {
+    REV: true,
+    BY: 'score',
+  });
 
-	return result;
+  const leaderboard = [];
+  for (let i = 0; i < flat.length; i += 2) {
+    const name = flat[i];
+    const score = Number(flat[i + 1]);
+
+    // Optional: fetch full ship data (user1, user2, etc.)
+    const ship = await redis.hgetall(`ship:${name}`);
+    leaderboard.push({
+      name,
+      score,
+      ...ship,
+    });
+  }
+
+  return leaderboard;
 }
+
 
 export default async function handler(req, res) {
 	const signature = req.headers['x-signature-ed25519'];
