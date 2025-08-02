@@ -47,6 +47,7 @@ async function addShip(user1, user2, name) {
   await redis.hset(`ship:${name}`, {
     user1,
     user2,
+	name,
     supportCount: 0,
   });
 
