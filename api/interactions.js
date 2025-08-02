@@ -7,7 +7,6 @@ export const config = {
 	},
 };
 
-// Init Redis client (make sure env vars are set on Vercel)
 const redis = new Redis({
 	url: process.env.UPSTASH_REDIS_REST_URL,
 	token: process.env.UPSTASH_REDIS_REST_TOKEN,
@@ -26,24 +25,25 @@ function getComment(percentage) {
 	if (percentage <= 40) return "😬 just stay friends bro!";
 	if (percentage <= 60) return "🤝 bff, nothing else!";
 	if (percentage <= 80) return "✨ yall got a chance!";
+
 	return "perfect soulmates! go to the motel tonight or i will find u.";
 }
 
 async function getShip(name) {
 	const ship = await redis.hgetall(`ship:${name}`);
-	if (!ship || Object.keys(ship).length === 0) throw new Error("Ship not found");
 
+	if (!ship || Object.keys(ship).length === 0) throw new Error("Ship not found");
 	ship.supportCount = Number(ship.supportCount) || 0;
+
 	return ship;
 }
 
 
 async function addShip(user1, user2, name) {
-	// Check if ship exists already
 	const exists = await redis.exists(`ship:${name}`);
+
 	if (exists) throw new Error(`Ship "${name}" already exists.`);
 
-	// Add hash
 	await redis.hset(`ship:${name}`, {
 		user1,
 		user2,
@@ -51,7 +51,6 @@ async function addShip(user1, user2, name) {
 		supportCount: 0,
 	});
 
-	// Correct zadd usage
 	await redis.zadd('ship_leaderboard', {
 		score: 0,
 		member: name
@@ -60,42 +59,52 @@ async function addShip(user1, user2, name) {
 
 
 async function editShipName(user1, user2, newName) {
-	// Find ship by matching user1 and user2
-	// Since no index by users, scan all ships in leaderboard and check
 	const ships = await redis.zrange('ship_leaderboard', 0, -1);
+
 	for (const shipName of ships) {
 		const ship = await getShip(shipName);
+
 		if (!ship) continue;
+
 		if (ship.user1 === user1 && ship.user2 === user2) {
-			// Rename: copy data to new hash, delete old, update leaderboard
 			await redis.hset(`ship:${newName}`, {
 				user1,
 				user2,
 				supportCount: ship.supportCount,
 			});
+
 			await redis.del(`ship:${shipName}`);
-			// Update leaderboard: remove old, add new with same score
 			await redis.zrem('ship_leaderboard', shipName);
-			await redis.zadd('ship_leaderboard', ship.supportCount, newName);
+			await redis.zadd('ship_leaderboard', {
+				score: ship.supportCount,
+				member: newName,
+			});
+
 			return;
 		}
 	}
+
 	throw new Error('No ship found with those users.');
 }
 
 async function removeShip(name) {
 	const ship = await getShip(name);
+
 	if (!ship) throw new Error(`Ship "${name}" not found.`);
+
 	await redis.del(`ship:${name}`);
 	await redis.zrem('ship_leaderboard', name);
 }
 
 async function updateSupportCount(name, supportCount) {
 	const ship = await getShip(name);
+
 	if (!ship) throw new Error('ship not found :(');
+
 	await redis.hset(`ship:${name}`, {
 		supportCount: supportCount,
 	});
+
 	await redis.zadd('ship_leaderboard', {
 		score: supportCount,
 		member: name,
@@ -118,11 +127,11 @@ async function getLeaderboard() {
 	});
 
 	const leaderboard = [];
+
 	for (let i = 0; i < flat.length; i += 1) {
 		const name = flat[i];
-
-		// Optional: fetch full ship data (user1, user2, etc.)
 		const ship = await redis.hgetall(`ship:${name}`);
+
 		leaderboard.push({
 			name,
 			...ship,
@@ -180,9 +189,9 @@ export default async function handler(req, res) {
 				let percentage = Math.floor(Math.random() * 101);
 
 				if (user1 === user2) percentage = 100;
+
 				const name1 = member1.global_name || member1.username;
 				const name2 = member2.global_name || member2.username;
-
 				const half1 = name1.slice(0, Math.floor(name1.length / 2));
 				const half2 = name2.slice(Math.floor(name2.length / 2));
 				const shipName = half1 + half2;
@@ -218,6 +227,7 @@ export default async function handler(req, res) {
 				const response = await fetch(`https://discord.com/api/v10/guilds/${guildId}/members?limit=1000`, {
 					headers: { Authorization: `Bot ${process.env.token}` },
 				});
+
 				if (!response.ok) throw new Error('Failed to fetch members');
 
 				const members = await response.json();
@@ -241,7 +251,6 @@ export default async function handler(req, res) {
 				const percentage = Math.floor(Math.random() * 101);
 				const name1 = user1.global_name || user1.username;
 				const name2 = user2.global_name || user2.username;
-
 				const half1 = name1.slice(0, Math.floor(name1.length / 2));
 				const half2 = name2.slice(Math.floor(name2.length / 2));
 				const shipName = half1 + half2;
@@ -353,6 +362,7 @@ export default async function handler(req, res) {
 		if (interaction.data.name === 'leaderboard') {
 			try {
 				const ships = await getLeaderboard();
+
 				if (ships.length === 0) {
 					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
 				}
@@ -360,6 +370,7 @@ export default async function handler(req, res) {
 				ships.sort((a, b) => Number(b.supportCount) - Number(a.supportCount));
 
 				let description = '';
+
 				ships.forEach((ship, i) => {
 					console.log(ship);
 					description += `**${i + 1}.** **${ship.name}** — <@${ship.user1}> + <@${ship.user2}> — **${ship.supportCount}** supports\n`;
