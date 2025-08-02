@@ -340,10 +340,10 @@ export default async function handler(req, res) {
 			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
 			try {
-				const newCount = await incrementSupport(name);
+				const newCount = await incrementSupport(name.toUpperCase());
 				return res.status(200).json({
 					type: 4,
-					data: { content: `✅ you supported "${name}" hehhee! its now at ${newCount}` },
+					data: { content: `✅ you supported "${name.toUpperCase()}" hehhee! its now at ${newCount}` },
 				});
 			} catch (err) {
 				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
