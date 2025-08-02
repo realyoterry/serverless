@@ -113,7 +113,7 @@ async function getLeaderboard() {
   });
 
   const leaderboard = [];
-  for (let i = 0; i <= flat.length; i += 1) {
+  for (let i = 0; i < flat.length; i += 1) {
     const name = flat[i];
     const score = Number(flat[i]);
 
