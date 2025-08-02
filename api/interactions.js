@@ -93,7 +93,9 @@ async function removeShip(name) {
 async function updateSupportCount(name, supportCount) {
 	const ship = await getShip(name);
 	if (!ship) throw new Error('ship not found :(');
-	await redis.hset(`ship:${name}`, 'supportCount', supportCount);
+	await redis.hset(`ship:${name}`, {
+  supportCount: supportCount,
+});
 	await redis.zadd('ship_leaderboard', {
   score: supportCount,
   member: name,
