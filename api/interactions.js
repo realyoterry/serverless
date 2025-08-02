@@ -66,7 +66,8 @@ export default async function handler(req, res) {
 
 		const doPatch = async (data) => {
 			try {
-				await fetch(followupUrl, {
+				console.log('PATCHing interaction with data:', data);
+				const res = await fetch(followupUrl, {
 					method: 'PATCH',
 					headers: {
 						Authorization: `Bot ${process.env.token}`,
@@ -74,6 +75,11 @@ export default async function handler(req, res) {
 					},
 					body: JSON.stringify(data),
 				});
+				console.log('PATCH response status:', res.status);
+				if (!res.ok) {
+					const text = await res.text();
+					console.error('PATCH failed:', text);
+				}
 			} catch (err) {
 				console.error('Failed to PATCH interaction followup:', err);
 			}
