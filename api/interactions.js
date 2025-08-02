@@ -108,7 +108,8 @@ async function incrementSupport(name) {
 async function getLeaderboard() {
   const flat = await redis.zrange('ship_leaderboard', 0, 9, {
     REV: true,
-    BY: 'score',
+    WITHSCORES: true,
+
   });
 
   const leaderboard = [];
