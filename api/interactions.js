@@ -39,18 +39,24 @@ async function getShip(name) {
 
 
 async function addShip(user1, user2, name) {
-	// Check if ship exists already
-	const exists = await redis.exists(`ship:${name}`);
-	if (exists) throw new Error(`Ship "${name}" already exists.`);
-	// Add hash
-	await redis.hset(`ship:${name}`, {
-		user1,
-		user2,
-		supportCount: 0,
-	});
-	// Add to leaderboard with score 0
-	await redis.zadd('ship_leaderboard', 0, name);
+  // Check if ship exists already
+  const exists = await redis.exists(`ship:${name}`);
+  if (exists) throw new Error(`Ship "${name}" already exists.`);
+
+  // Add hash
+  await redis.hset(`ship:${name}`, {
+    user1,
+    user2,
+    supportCount: 0,
+  });
+
+  // Correct zadd usage
+  await redis.zadd('ship_leaderboard', {
+    score: 0,
+    member: name
+  });
 }
+
 
 async function editShipName(user1, user2, newName) {
 	// Find ship by matching user1 and user2
