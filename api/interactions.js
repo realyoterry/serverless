@@ -39,23 +39,23 @@ async function getShip(name) {
 
 
 async function addShip(user1, user2, name) {
-  // Check if ship exists already
-  const exists = await redis.exists(`ship:${name}`);
-  if (exists) throw new Error(`Ship "${name}" already exists.`);
+	// Check if ship exists already
+	const exists = await redis.exists(`ship:${name}`);
+	if (exists) throw new Error(`Ship "${name}" already exists.`);
 
-  // Add hash
-  await redis.hset(`ship:${name}`, {
-    user1,
-    user2,
-	name,
-    supportCount: 0,
-  });
+	// Add hash
+	await redis.hset(`ship:${name}`, {
+		user1,
+		user2,
+		name,
+		supportCount: 0,
+	});
 
-  // Correct zadd usage
-  await redis.zadd('ship_leaderboard', {
-    score: 0,
-    member: name
-  });
+	// Correct zadd usage
+	await redis.zadd('ship_leaderboard', {
+		score: 0,
+		member: name
+	});
 }
 
 
@@ -94,13 +94,12 @@ async function updateSupportCount(name, supportCount) {
 	const ship = await getShip(name);
 	if (!ship) throw new Error('ship not found :(');
 	await redis.hset(`ship:${name}`, {
-  supportCount: supportCount,
-});
+		supportCount: supportCount,
+	});
 	await redis.zadd('ship_leaderboard', {
-  score: supportCount,
-  member: name,
-});
-
+		score: supportCount,
+		member: name,
+	});
 }
 
 async function incrementSupport(name) {
@@ -112,25 +111,25 @@ async function incrementSupport(name) {
 }
 
 async function getLeaderboard() {
-  const flat = await redis.zrange('ship_leaderboard', 0, 9, {
-    REV: true,
-    WITHSCORES: true,
+	const flat = await redis.zrange('ship_leaderboard', 0, 9, {
+		REV: true,
+		WITHSCORES: true,
 
-  });
+	});
 
-  const leaderboard = [];
-  for (let i = 0; i < flat.length; i += 1) {
-    const name = flat[i];
+	const leaderboard = [];
+	for (let i = 0; i < flat.length; i += 1) {
+		const name = flat[i];
 
-    // Optional: fetch full ship data (user1, user2, etc.)
-    const ship = await redis.hgetall(`ship:${name}`);
-    leaderboard.push({
-      name,
-      ...ship,
-    });
-  }
+		// Optional: fetch full ship data (user1, user2, etc.)
+		const ship = await redis.hgetall(`ship:${name}`);
+		leaderboard.push({
+			name,
+			...ship,
+		});
+	}
 
-  return leaderboard;
+	return leaderboard;
 }
 
 
@@ -222,7 +221,7 @@ export default async function handler(req, res) {
 				if (!response.ok) throw new Error('Failed to fetch members');
 
 				const members = await response.json();
-				const filtered = members.filter(m => !m.user.bot);
+				const filtered = members.filter(m => !m.user.bot && m.roles.includes('1374281369517031514'));
 
 				if (filtered.length < 2) {
 					return res.status(200).json({
