@@ -1,4 +1,5 @@
 import nacl from 'tweetnacl';
+import { Redis } from '@upstash/redis';
 
 export const config = {
 	api: {
@@ -6,24 +7,11 @@ export const config = {
 	},
 };
 
-import Database from 'better-sqlite3';
-import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-
-const dbDir = '/tmp';
-if (!existsSync(dbDir)) mkdirSync(dbDir);
-const db = new Database(join(dbDir, 'ships.db'));
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS ships (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user1 TEXT NOT NULL,
-    user2 TEXT NOT NULL,
-    name TEXT UNIQUE NOT NULL,
-    supportCount INTEGER DEFAULT 0
-  );
-`);
-
+// Init Redis client (make sure env vars are set on Vercel)
+const redis = new Redis({
+	url: process.env.UPSTASH_REDIS_REST_URL,
+	token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 function verifySignature({ signature, timestamp, body, publicKey }) {
 	return nacl.sign.detached.verify(
@@ -39,6 +27,83 @@ function getComment(percentage) {
 	if (percentage <= 60) return "🤝 bff, nothing else!";
 	if (percentage <= 80) return "✨ yall got a chance!";
 	return "perfect soulmates! go to the motel tonight or i will find u.";
+}
+
+async function getShip(name) {
+	const ship = await redis.hgetall(`ship:${name}`);
+	if (!ship || Object.keys(ship).length === 0) return null;
+	ship.supportCount = Number(ship.supportCount);
+	return ship;
+}
+
+async function addShip(user1, user2, name) {
+	// Check if ship exists already
+	const exists = await redis.exists(`ship:${name}`);
+	if (exists) throw new Error(`Ship "${name}" already exists.`);
+	// Add hash
+	await redis.hset(`ship:${name}`, {
+		user1,
+		user2,
+		supportCount: 0,
+	});
+	// Add to leaderboard with score 0
+	await redis.zadd('ship_leaderboard', 0, name);
+}
+
+async function editShipName(user1, user2, newName) {
+	// Find ship by matching user1 and user2
+	// Since no index by users, scan all ships in leaderboard and check
+	const ships = await redis.zrange('ship_leaderboard', 0, -1);
+	for (const shipName of ships) {
+		const ship = await getShip(shipName);
+		if (!ship) continue;
+		if (ship.user1 === user1 && ship.user2 === user2) {
+			// Rename: copy data to new hash, delete old, update leaderboard
+			await redis.hset(`ship:${newName}`, {
+				user1,
+				user2,
+				supportCount: ship.supportCount,
+			});
+			await redis.del(`ship:${shipName}`);
+			// Update leaderboard: remove old, add new with same score
+			await redis.zrem('ship_leaderboard', shipName);
+			await redis.zadd('ship_leaderboard', ship.supportCount, newName);
+			return;
+		}
+	}
+	throw new Error('No ship found with those users.');
+}
+
+async function removeShip(name) {
+	const ship = await getShip(name);
+	if (!ship) throw new Error(`Ship "${name}" not found.`);
+	await redis.del(`ship:${name}`);
+	await redis.zrem('ship_leaderboard', name);
+}
+
+async function updateSupportCount(name, supportCount) {
+	const ship = await getShip(name);
+	if (!ship) throw new Error('ship not found :(');
+	await redis.hset(`ship:${name}`, 'supportCount', supportCount);
+	await redis.zadd('ship_leaderboard', supportCount, name);
+}
+
+async function incrementSupport(name) {
+	const ship = await getShip(name);
+	if (!ship) throw new Error('ship not found :(');
+	const newCount = await redis.hincrby(`ship:${name}`, 'supportCount', 1);
+	await redis.zincrby('ship_leaderboard', 1, name);
+	return newCount;
+}
+
+async function getLeaderboard() {
+	const topShips = await redis.zrevrange('ship_leaderboard', 0, 9);
+	const result = [];
+	for (const name of topShips) {
+		const ship = await getShip(name);
+		if (ship) result.push({ name, ...ship });
+	}
+	return result;
 }
 
 export default async function handler(req, res) {
@@ -195,30 +260,21 @@ export default async function handler(req, res) {
 
 			try {
 				if (action === 'add') {
-					const stmt = db.prepare('INSERT INTO ships (user1, user2, name) VALUES (?, ?, ?)');
-					stmt.run(user1, user2, name);
+					await addShip(user1, user2, name);
 					return res.status(200).json({
 						type: 4,
 						data: { content: `✅ ship "${name}" created! yayyy` }
 					});
 
 				} else if (action === 'edit') {
-					const stmt = db.prepare('UPDATE ships SET name = ? WHERE user1 = ? AND user2 = ?');
-					const result = stmt.run(name, user1, user2);
-					if (result.changes === 0) {
-						throw new Error(`No ship found with those users.`);
-					}
+					await editShipName(user1, user2, name);
 					return res.status(200).json({
 						type: 4,
 						data: { content: `✏️ ship name updated to "${name}"!` }
 					});
 
 				} else if (action === 'remove') {
-					const stmt = db.prepare('DELETE FROM ships WHERE name = ?');
-					const result = stmt.run(name);
-					if (result.changes === 0) {
-						throw new Error(`Ship "${name}" not found.`);
-					}
+					await removeShip(name);
 					return res.status(200).json({
 						type: 4,
 						data: { content: `🗑️ ship "${name}" deleted!` }
@@ -250,11 +306,7 @@ export default async function handler(req, res) {
 			const supportCount = interaction.data.options.find(opt => opt.name === 'support').value;
 
 			try {
-				const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
-				if (!ship) throw new Error("ship not found :(");
-
-				db.prepare('UPDATE ships SET supportCount = ? WHERE name = ?').run(supportCount, name);
-
+				await updateSupportCount(name, supportCount);
 				return res.status(200).json({
 					type: 4,
 					data: { content: `✅ ship "${name}" support count updated to ${supportCount}!` }
@@ -268,14 +320,10 @@ export default async function handler(req, res) {
 			const name = interaction.data.options.find(opt => opt.name === 'name').value;
 
 			try {
-				const ship = db.prepare('SELECT * FROM ships WHERE name = ?').get(name);
-				if (!ship) throw new Error("ship not found :(");
-
-				db.prepare('UPDATE ships SET supportCount = supportCount + 1 WHERE name = ?').run(name);
-
+				const newCount = await incrementSupport(name);
 				return res.status(200).json({
 					type: 4,
-					data: { content: `✅ you supported "${name}" hehhee! its now at ${ship.supportCount + 1}` },
+					data: { content: `✅ you supported "${name}" hehhee! its now at ${newCount}` },
 				});
 			} catch (err) {
 				return res.status(200).json({ type: 4, data: { content: `❌ ${err.message}` } });
@@ -284,14 +332,13 @@ export default async function handler(req, res) {
 
 		if (interaction.data.name === 'leaderboard') {
 			try {
-				const rows = db.prepare('SELECT * FROM ships ORDER BY supportCount DESC LIMIT 10').all();
-
-				if (rows.length === 0) {
+				const ships = await getLeaderboard();
+				if (ships.length === 0) {
 					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
 				}
 
 				let description = '';
-				rows.forEach((ship, i) => {
+				ships.forEach((ship, i) => {
 					description += `**${i + 1}.** **${ship.name}** — <@${ship.user1}> + <@${ship.user2}> — **${ship.supportCount}** supports\n`;
 				});
 
