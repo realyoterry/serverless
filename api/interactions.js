@@ -17,7 +17,7 @@ const Ship = mongoose.models.Ship || mongoose.model('Ship', shipSchema);
 const connectDB = async () => {
 	if (mongoose.connection.readyState === 0) {
 		console.log(process.env.mongoUri);
-		await mongoose.connect(process.env.mongoUri, { dbName: 'mybotdb' });
+		await mongoose.connect(process.env.mongoUri);
 		console.log('✅ MongoDB connected');
 	}
 };
