@@ -115,13 +115,11 @@ async function getLeaderboard() {
   const leaderboard = [];
   for (let i = 0; i < flat.length; i += 1) {
     const name = flat[i];
-    const score = Number(flat[i]);
 
     // Optional: fetch full ship data (user1, user2, etc.)
     const ship = await redis.hgetall(`ship:${name}`);
     leaderboard.push({
       name,
-      score,
       ...ship,
     });
   }
@@ -353,7 +351,9 @@ export default async function handler(req, res) {
 				if (ships.length === 0) {
 					return res.status(200).json({ type: 4, data: { content: '❌ no ships found noo.' } });
 				}
-console.log(ships);
+
+				ships.sort((a, b) => Number(b.supportCount) - Number(a.supportCount));
+			
 				let description = '';
 				ships.forEach((ship, i) => {
 					console.log(ship);
