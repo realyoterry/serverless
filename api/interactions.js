@@ -38,7 +38,6 @@ async function getShip(name) {
 	return ship;
 }
 
-
 async function addShip(user1, user2, name) {
 	const exists = await redis.exists(`ship:${name}`);
 
@@ -57,7 +56,6 @@ async function addShip(user1, user2, name) {
 	});
 }
 
-
 async function editShipName(user1, user2, newName) {
 	const ships = await redis.zrange('ship_leaderboard', 0, -1);
 
@@ -71,6 +69,7 @@ async function editShipName(user1, user2, newName) {
 				user1,
 				user2,
 				supportCount: ship.supportCount,
+				name: newName,
 			});
 
 			await redis.del(`ship:${shipName}`);
@@ -123,12 +122,12 @@ async function getLeaderboard() {
 	const flat = await redis.zrange('ship_leaderboard', 0, 9, {
 		REV: true,
 		WITHSCORES: true,
-
 	});
 
 	const leaderboard = [];
 
-	for (let i = 0; i < flat.length; i += 1) {
+	// flat = [name, score, name, score, ...]
+	for (let i = 0; i < flat.length; i += 2) {
 		const name = flat[i];
 		const ship = await redis.hgetall(`ship:${name}`);
 
@@ -141,6 +140,26 @@ async function getLeaderboard() {
 	return leaderboard;
 }
 
+/**
+ * NEW: find an existing ship by user IDs (either order).
+ * Returns the ship object or null if none found.
+ */
+async function findShipByUsers(userId1, userId2) {
+	const names = await redis.zrange('ship_leaderboard', 0, -1);
+	for (const shipName of names) {
+		const ship = await redis.hgetall(`ship:${shipName}`);
+		if (!ship) continue;
+
+		// stored as strings; compare as-is
+		if (
+			(ship.user1 === userId1 && ship.user2 === userId2) ||
+			(ship.user1 === userId2 && ship.user2 === userId1)
+		) {
+			return ship;
+		}
+	}
+	return null;
+}
 
 export default async function handler(req, res) {
 	const signature = req.headers['x-signature-ed25519'];
@@ -176,11 +195,11 @@ export default async function handler(req, res) {
 			const user2 = interaction.data.options.find(opt => opt.name === 'user2').value;
 
 			async function fetchUser(userId) {
-				const res = await fetch(`https://discord.com/api/v10/users/${userId}`, {
+				const resUser = await fetch(`https://discord.com/api/v10/users/${userId}`, {
 					headers: { Authorization: `Bot ${process.env.token}` },
 				});
-				if (!res.ok) throw new Error('Failed to fetch user');
-				return res.json();
+				if (!resUser.ok) throw new Error('Failed to fetch user');
+				return resUser.json();
 			}
 
 			try {
@@ -188,7 +207,17 @@ export default async function handler(req, res) {
 
 				let percentage = Math.floor(Math.random() * 101);
 
-				if (user1 === user2) percentage = 100;
+				// Self-ship = 100
+				if (user1 === user2) {
+					percentage = 100;
+				} else {
+					// If a formal ship for these two users exists (either order),
+					// force the percentage to be strictly > 80 (i.e., 81–100).
+					const existing = await findShipByUsers(user1, user2);
+					if (existing && percentage <= 80) {
+						percentage = 81 + Math.floor(Math.random() * 20); // 81..100
+					}
+				}
 
 				const name1 = member1.global_name || member1.username;
 				const name2 = member2.global_name || member2.username;
@@ -247,10 +276,10 @@ export default async function handler(req, res) {
 					if (!random.find(m => m.user.id === pick.user.id)) random.push(pick);
 				}
 
-				const [user1, user2] = random.map(m => m.user);
+				const [userA, userB] = random.map(m => m.user);
 				const percentage = Math.floor(Math.random() * 101);
-				const name1 = user1.global_name || user1.username;
-				const name2 = user2.global_name || user2.username;
+				const name1 = userA.global_name || userA.username;
+				const name2 = userB.global_name || userB.username;
 				const half1 = name1.slice(0, Math.floor(name1.length / 2));
 				const half2 = name2.slice(Math.floor(name2.length / 2));
 				const shipName = half1 + half2;
@@ -263,7 +292,7 @@ export default async function handler(req, res) {
 								title: "🎲 random shippp 🎲",
 								color: 0x9370DB,
 								fields: [
-									{ name: "cute couple", value: `<@${user1.id}> + <@${user2.id}>` },
+									{ name: "cute couple", value: `<@${userA.id}> + <@${userB.id}>` },
 									{ name: "compatibility", value: `${percentage}%`, inline: true },
 									{ name: "ship name", value: shipName, inline: true },
 									{ name: "comment", value: getComment(percentage) }
@@ -372,7 +401,6 @@ export default async function handler(req, res) {
 				let description = '';
 
 				ships.forEach((ship, i) => {
-					console.log(ship);
 					description += `**${i + 1}.** **${ship.name}** — <@${ship.user1}> + <@${ship.user2}> — **${ship.supportCount}** supports\n`;
 				});
 
