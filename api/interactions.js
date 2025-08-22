@@ -127,7 +127,7 @@ async function getLeaderboard() {
 	const leaderboard = [];
 
 	// flat = [name, score, name, score, ...]
-	for (let i = 0; i < flat.length; i += 2) {
+	for (let i = 0; i < flat.length; i += 1) {
 		const name = flat[i];
 		const ship = await redis.hgetall(`ship:${name}`);
 
