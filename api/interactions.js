@@ -260,7 +260,7 @@ export default async function handler(req, res) {
 				if (!response.ok) throw new Error('Failed to fetch members');
 
 				const members = await response.json();
-				const filtered = members.filter(m => !m.user.bot && m.roles.includes('1374281369517031514'));
+				const filtered = members.filter(m => !m.user.bot);
 
 				if (filtered.length < 2) {
 					return res.status(200).json({
